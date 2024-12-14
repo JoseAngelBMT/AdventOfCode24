@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::ops::{Add, Mul};
+use std::ops::{Add, Mul, Sub};
 
 #[derive(Clone, Debug)]
 pub struct Board<T> {
@@ -28,12 +28,15 @@ impl<T> Board<T> {
 
         self.rows.get(y).and_then(|row| row.get(x))
     }
-     pub fn set_value(&mut self, coord: Coord, value: T){
-         let x: usize = coord.x.try_into().ok().unwrap();
-         let y: usize = coord.y.try_into().ok().unwrap();
-         self.rows[y][x] = value;
-     }
+    pub fn set_value(&mut self, coord: Coord, value: T) {
+        let x: usize = coord.x.try_into().ok().unwrap();
+        let y: usize = coord.y.try_into().ok().unwrap();
+        self.rows[y][x] = value;
+    }
 
+    pub fn is_in_bound(&self, coord: Coord) -> bool {
+        self.get_value(coord).is_some()
+    }
 }
 
 impl Board<char> {
@@ -50,8 +53,8 @@ impl Board<i32> {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Coord {
-    x: i32,
-    y: i32,
+    pub x: i32,
+    pub y: i32,
 }
 
 impl Coord {
@@ -73,5 +76,12 @@ impl Mul for Coord {
 
     fn mul(self, rhs: Self) -> Self::Output {
         Self::new(self.x * rhs.x, self.y * rhs.y)
+    }
+}
+
+impl Sub for Coord {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self::new(self.x - rhs.x, self.y - rhs.y)
     }
 }
