@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::ops::{Add, Mul, Sub};
@@ -7,7 +8,7 @@ pub struct Board<T> {
     pub rows: Vec<Vec<T>>,
 }
 
-impl<T> Board<T> {
+impl<T: PartialEq + Debug> Board<T> {
     pub fn new(rows: Vec<Vec<T>>) -> Self {
         Self { rows }
     }
@@ -37,11 +38,42 @@ impl<T> Board<T> {
     pub fn is_in_bound(&self, coord: Coord) -> bool {
         self.get_value(coord).is_some()
     }
+
+    pub fn find_element(&self, element: T) -> Option<Coord> {
+        self.rows
+            .iter()
+            .enumerate()
+            .find_map(|(row_idx, row)| {
+                row.iter()
+                    .enumerate()
+                    .find(|&(_, cell)| cell == &element)
+                    .map(|(col_idx, _)| Coord::new(
+                        col_idx as i32,
+                        row_idx as i32,
+                    ))
+            })
+    }
+
+
+    pub fn print_board(&self) {
+        for row in &self.rows {
+            let line: String = row.iter().map(|cell| format!("{:?}", cell)).collect::<Vec<_>>().join(" ");
+            println!("{}", line);
+        }
+    }
 }
 
 impl Board<char> {
     pub fn read_char_board(path: &str) -> Self {
         Self::read_board(path, &|c| *c)
+    }
+
+    pub fn from_string(p0: &str) -> Self {
+        let rows: Vec<Vec<char>> = p0
+            .lines()
+            .map(|line| line.chars().map(|c| c.into()).collect())
+            .collect();
+        Self { rows }
     }
 }
 
