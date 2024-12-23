@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::ops::{Add, Mul, Sub};
@@ -8,7 +8,7 @@ pub struct Board<T> {
     pub rows: Vec<Vec<T>>,
 }
 
-impl<T: PartialEq + Debug> Board<T> {
+impl<T: PartialEq + Debug + Display> Board<T> {
     pub fn new(rows: Vec<Vec<T>>) -> Self {
         Self { rows }
     }
@@ -57,7 +57,7 @@ impl<T: PartialEq + Debug> Board<T> {
 
     pub fn print_board(&self) {
         for row in &self.rows {
-            let line: String = row.iter().map(|cell| format!("{:?}", cell)).collect::<Vec<_>>().join(" ");
+            let line: String = row.iter().map(|cell| format!("{}", cell)).collect::<Vec<_>>().join("");
             println!("{}", line);
         }
     }
@@ -89,9 +89,26 @@ pub struct Coord {
     pub y: i32,
 }
 
+
 impl Coord {
     pub fn new(x: i32, y: i32) -> Coord {
         Coord { x, y }
+    }
+
+    pub fn up(&self) -> Coord {
+        Coord::new(self.x, self.y - 1)
+    }
+
+    pub fn down(&self) -> Coord {
+        Coord::new(self.x, self.y + 1)
+    }
+
+    pub fn left(&self) -> Coord {
+        Coord::new(self.x - 1, self.y)
+    }
+
+    pub fn right(&self) -> Coord {
+        Coord::new(self.x + 1, self.y)
     }
 }
 
@@ -117,3 +134,5 @@ impl Sub for Coord {
         Self::new(self.x - rhs.x, self.y - rhs.y)
     }
 }
+
+
