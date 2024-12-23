@@ -95,7 +95,7 @@ fn is_blocked_path(board: &Board<char>, part1: Coord, part2: Coord, movement: Co
                 Some(_) => false,
                 _ => false,
             })
-    }else {
+    } else {
         let next_part = part2 + movement;
         match board.get_value(part2 + movement) {
             Some('[') => is_blocked_path(board, next_part, next_part.right(), movement),
@@ -123,21 +123,14 @@ fn push_large_box(
                 *first_coordinate
             }
             Some('[') | Some(']') => {
-                let next_part = if part2_value == Some(&']') {
-                    part2_next.left()
-                } else {
-                    part2_next.right()
+                let next_part = match part2_value {
+                    Some('[') => part2_next.right(),
+                    Some(']') => part2_next.left(),
+                    _ => part2_next
                 };
-                push_large_box(
-                    board,
-                    &part2_next,
-                    &next_part,
-                    movement,
-                    first_coordinate,
-                );
+                push_large_box(board, &part2_next, &next_part, movement, first_coordinate);
                 swap_values(board, part2, &part2_next);
                 swap_values(board, part1, part2);
-
                 *first_coordinate
             }
             _ => *first_coordinate - *movement
@@ -154,86 +147,42 @@ fn push_large_box(
                 *first_coordinate
             }
 
-            (Some('[') | Some(']'), Some('[') | Some(']')) => {
-                let next_part = if part1_value == Some(&']') {
-                    part1_next.left()
-                } else {
-                    part1_next.right()
-                };
-                let next_part_2 = if part2_value == Some(&']') {
-                    part2_next.left()
-                } else {
-                    part2_next.right()
-                };
+            (Some('[') | Some(']') | Some('.'), Some('[') | Some(']') | Some('.')) => {
+                let (next_part, next_part_2) = (
+                    match part1_value {
+                        Some('[') => part1_next.right(),
+                        Some(']') => part1_next.left(),
+                        _ => part1_next,
+                    },
+                    match part2_value {
+                        Some('[') => part2_next.right(),
+                        Some(']') => part2_next.left(),
+                        _ => part2_next,
+                    },
+                );
 
+                // If box ^ or v is in the same space of actual box
+                // []
+                // []
                 if part1_value == board.get_value(*part1) {
-                    push_large_box(
-                        board,
-                        &part1_next,
-                        &next_part,
-                        movement,
-                        first_coordinate,
-                    );
+                    push_large_box(board, &part1_next, &next_part, movement, first_coordinate);
                     swap_values(board, part2, &part2_next);
                     swap_values(board, part1, &part1_next);
                     *first_coordinate
-
                 } else {
-                    push_large_box(
-                        board,
-                        &part1_next,
-                        &next_part,
-                        movement,
-                        first_coordinate,
-                    );
-                    push_large_box(
-                        board,
-                        &part2_next,
-                        &next_part_2,
-                        movement,
-                        first_coordinate,
-                    );
-
+                    if next_part != part1_next {
+                        push_large_box(board, &part1_next, &next_part, movement, first_coordinate);
+                    }
+                    if next_part_2 != part2_next {
+                        push_large_box(board, &part2_next, &next_part_2, movement, first_coordinate);
+                    }
                     swap_values(board, part2, &part2_next);
                     swap_values(board, part1, &part1_next);
+
                     *first_coordinate
                 }
             }
-            (Some('[') | Some(']'), Some('.')) => {
-                let next_part = if part1_value == Some(&']') {
-                    part1_next.left()
-                } else {
-                    part1_next.right()
-                };
-                push_large_box(
-                    board,
-                    &part1_next,
-                    &next_part,
-                    movement,
-                    first_coordinate,
-                );
-                swap_values(board, part2, &part2_next);
-                swap_values(board, part1, &part1_next);
-                *first_coordinate
-            }
-            (Some('.'), Some('[') | Some(']')) => {
-                let next_part = if part2_value == Some(&']') {
-                    part2_next.left()
-                } else {
-                    part2_next.right()
-                };
-                push_large_box(
-                    board,
-                    &part2_next,
-                    &next_part,
-                    movement,
-                    first_coordinate,
-                );
-                swap_values(board, part2, &part2_next);
-                swap_values(board, part1, &part1_next);
-                *first_coordinate
-            }
-            _ => *first_coordinate - *movement
+            _ => *first_coordinate - *movement,
         }
     }
 }
@@ -241,46 +190,24 @@ fn push_large_box(
 fn next_state(board: &mut Board<char>, coord: &mut Coord, move_dir: &char) {
     let movement = char_to_coord(*move_dir).unwrap();
     let next_coord = movement + *coord;
-    if let Some(cell) = board.get_value(next_coord) {
-        match cell {
-            '#' => {
-                *coord = *coord;
-            }
-            'O' => {
-                *coord = push_box(board, &next_coord, &movement, &next_coord);
-            }
-            '[' => {
-                if !is_blocked_path(board, next_coord, next_coord.right(), movement) {
-                    *coord = push_large_box(
-                        board,
-                        &next_coord,
-                        &next_coord.right(),
-                        &movement,
-                        &next_coord
-                    );
-                }else {
-                    *coord = *coord;
-                }
-            }
-            ']' => {
-                if !is_blocked_path(board, next_coord, next_coord.left(), movement) {
-                    *coord = push_large_box(
-                        board,
-                        &next_coord,
-                        &next_coord.left(),
-                        &movement,
-                        &next_coord
-                    );
-                }else {
-                    *coord = *coord;
-                }
-            }
-            _ => {
-                *coord = next_coord;
+    match board.get_value(next_coord) {
+        Some('.') => {
+            *coord = next_coord
+        }
+        Some('O') => {
+            *coord = push_box(board, &next_coord, &movement, &next_coord);
+        }
+        Some('[') => {
+            if !is_blocked_path(board, next_coord, next_coord.right(), movement) {
+                *coord = push_large_box(board, &next_coord, &next_coord.right(), &movement, &next_coord);
             }
         }
-    } else {
-        *coord = *coord;
+        Some(']') => {
+            if !is_blocked_path(board, next_coord, next_coord.left(), movement) {
+                *coord = push_large_box(board, &next_coord, &next_coord.left(), &movement, &next_coord);
+            }
+        }
+        _ => {}
     }
 }
 
@@ -300,7 +227,6 @@ fn count_coords(board: &Board<char>, element: char) -> i32 {
         })
         .sum()
 }
-
 
 fn day15(board: &Board<char>, chars: &Vec<char>, coord: &Coord, element: char) -> i32 {
     let mut board = board.clone();
