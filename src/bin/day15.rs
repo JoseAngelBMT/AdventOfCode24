@@ -63,46 +63,19 @@ fn push_box(
     coord: &Coord,
     movement: &Coord,
     first_coordinate: &Coord,
-) -> Coord {
+) -> bool {
     let next_coord = *coord + *movement;
     match board.get_value(next_coord) {
         Some('.') => {
             swap_values(board, coord, &next_coord);
-            *first_coordinate
+            true
         }
         Some('O') => {
             let result = push_box(board, &next_coord, movement, first_coordinate);
             swap_values(board, coord, &next_coord);
             result
         }
-        _ => *first_coordinate - *movement,
-    }
-}
-
-fn is_blocked_path(board: &Board<char>, part1: Coord, part2: Coord, movement: Coord) -> bool {
-    let blocked = |coord| board.get_value(coord + movement) == Some(&'#');
-    if blocked(part1) || blocked(part2) {
-        return true;
-    }
-
-    if movement.y != 0 {
-        let next_parts = [(part1, part1 + movement), (part2, part2 + movement)];
-        next_parts
-            .iter()
-            .any(|&(_, next)| match board.get_value(next) {
-                Some('[') => is_blocked_path(board, next, next.right(), movement),
-                Some(']') => is_blocked_path(board, next.left(), next, movement),
-                Some(_) => false,
-                _ => false,
-            })
-    } else {
-        let next_part = part2 + movement;
-        match board.get_value(part2 + movement) {
-            Some('[') => is_blocked_path(board, next_part, next_part.right(), movement),
-            Some(']') => is_blocked_path(board, next_part, next_part.left(), movement),
-            Some(_) => false,
-            _ => false,
-        }
+        _ => false,
     }
 }
 
@@ -112,7 +85,7 @@ fn push_large_box(
     part2: &Coord,
     movement: &Coord,
     first_coordinate: &Coord,
-) -> Coord {
+) -> bool {
     let part2_next = *part2 + *movement;
     if movement.y == 0 {
         let part2_value = board.get_value(part2_next);
@@ -120,7 +93,7 @@ fn push_large_box(
             Some('.') => {
                 swap_values(board, part2, &part2_next);
                 swap_values(board, part1, part2);
-                *first_coordinate
+                true
             }
             Some('[') | Some(']') => {
                 let next_part = match part2_value {
@@ -128,12 +101,12 @@ fn push_large_box(
                     Some(']') => part2_next.left(),
                     _ => part2_next
                 };
-                push_large_box(board, &part2_next, &next_part, movement, first_coordinate);
+                let result = push_large_box(board, &part2_next, &next_part, movement, first_coordinate);
                 swap_values(board, part2, &part2_next);
                 swap_values(board, part1, part2);
-                *first_coordinate
+                result
             }
-            _ => *first_coordinate - *movement
+            _ => false
         }
     } else {
         let part1_next = *part1 + *movement;
@@ -144,7 +117,7 @@ fn push_large_box(
             (Some('.'), Some('.')) => {
                 swap_values(board, part2, &part2_next);
                 swap_values(board, part1, &part1_next);
-                *first_coordinate
+                true
             }
 
             (Some('[') | Some(']') | Some('.'), Some('[') | Some(']') | Some('.')) => {
@@ -165,46 +138,55 @@ fn push_large_box(
                 // []
                 // []
                 if part1_value == board.get_value(*part1) {
-                    push_large_box(board, &part1_next, &next_part, movement, first_coordinate);
+                    let result = push_large_box(board, &part1_next, &next_part, movement, first_coordinate);
                     swap_values(board, part2, &part2_next);
                     swap_values(board, part1, &part1_next);
-                    *first_coordinate
+                    result
                 } else {
+                    let mut result = true;
                     if next_part != part1_next {
-                        push_large_box(board, &part1_next, &next_part, movement, first_coordinate);
+                        result = push_large_box(board, &part1_next, &next_part, movement, first_coordinate);
                     }
                     if next_part_2 != part2_next {
-                        push_large_box(board, &part2_next, &next_part_2, movement, first_coordinate);
+                        result = result & push_large_box(board, &part2_next, &next_part_2, movement, first_coordinate);
                     }
                     swap_values(board, part2, &part2_next);
                     swap_values(board, part1, &part1_next);
-
-                    *first_coordinate
+                    result
                 }
             }
-            _ => *first_coordinate - *movement,
+            _ => false,
         }
     }
 }
 
 fn next_state(board: &mut Board<char>, coord: &mut Coord, move_dir: &char) {
-    let movement = char_to_coord(*move_dir).unwrap();
-    let next_coord = movement + *coord;
+    let movement = char_to_coord(move_dir.clone()).unwrap();
+    let next_coord = movement + coord.clone();
+    let board_copy = board.clone();
     match board.get_value(next_coord) {
         Some('.') => {
             *coord = next_coord
         }
         Some('O') => {
-            *coord = push_box(board, &next_coord, &movement, &next_coord);
+            if push_box(board, &next_coord, &movement, &next_coord){
+                *coord = next_coord
+            }else{
+                *board = board_copy;
+            }
         }
         Some('[') => {
-            if !is_blocked_path(board, next_coord, next_coord.right(), movement) {
-                *coord = push_large_box(board, &next_coord, &next_coord.right(), &movement, &next_coord);
+            if push_large_box(board, &next_coord, &next_coord.right(), &movement, &next_coord) {
+                *coord = next_coord;
+            }else{
+                *board = board_copy;
             }
         }
         Some(']') => {
-            if !is_blocked_path(board, next_coord, next_coord.left(), movement) {
-                *coord = push_large_box(board, &next_coord, &next_coord.left(), &movement, &next_coord);
+            if push_large_box(board, &next_coord, &next_coord.left(), &movement, &next_coord) {
+                *coord = next_coord;
+            }else{
+                *board = board_copy;
             }
         }
         _ => {}
