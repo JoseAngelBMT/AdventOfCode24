@@ -1,5 +1,6 @@
+use itertools::Itertools;
 use std::cmp::Ordering;
-use std::collections::{BinaryHeap, HashMap, HashSet};
+use std::collections::{BinaryHeap, HashMap, HashSet, VecDeque};
 use AdventOfCode::board::{Board, Coord};
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Copy)]
@@ -68,10 +69,47 @@ fn get_neighbors(node: &Node, cost: &usize, end: &Coord) -> Vec<Node> {
         },
     ]
 }
-fn a_star(board: &Board<char>, start: Coord, end: Coord) -> (usize, Vec<Vec<(Coord, usize)>>) {
+
+fn get_tiles(
+    paths: HashMap<Node, HashSet<Node>>,
+    best_cost: usize,
+    start: &Coord,
+    end: &Coord,
+) -> usize {
+    let mut tiles: HashSet<Coord> = HashSet::new();
+    let mut visited = HashSet::new();
+    let mut queue = VecDeque::new();
+
+    let end_nodes: Vec<&Node> = paths
+        .keys()
+        .filter(|node| node.coord == *end && node.cost == best_cost)
+        .collect();
+
+    for node in end_nodes {
+        let node_clone = node.clone();
+        if visited.insert(node_clone) {
+            tiles.insert(node_clone.coord);
+            queue.push_back(node_clone);
+        }
+    }
+
+    while let Some(current_node) = queue.pop_front() {
+        if let Some(predecessors) = paths.get(&current_node) {
+            for pred in predecessors {
+                let pred_clone = pred.clone();
+                if visited.insert(pred_clone) {
+                    tiles.insert(pred_clone.coord);
+                    queue.push_back(pred_clone);
+                }
+            }
+        }
+    }
+    tiles.len()
+}
+
+fn a_star(board: &Board<char>, start: Coord, end: Coord) -> (usize, usize) {
     let mut part1_score = usize::MAX;
-    let mut paths: Vec<Vec<(Coord, usize)>> = Vec::new();
-    let mut path: HashMap<Node, Node> = HashMap::new();
+    let mut path: HashMap<Node, HashSet<Node>> = HashMap::new();
     let mut open_queue = BinaryHeap::new();
     let mut g_scores: HashMap<(Coord, i8), usize> = HashMap::new();
 
@@ -90,68 +128,52 @@ fn a_star(board: &Board<char>, start: Coord, end: Coord) -> (usize, Vec<Vec<(Coo
             if part1_score > current_node.cost {
                 part1_score = current_node.cost;
             }
-            let mut final_path = vec![(current_coord, current_node.cost)];
-            let mut current = current_node.clone();
-            while let Some(previous) = path.get(&current) {
-                final_path.push((previous.coord, previous.cost));
-                current = previous.clone();
-            }
-            path.clear();
-            final_path.reverse();
-            paths.push(final_path);
             continue;
         }
 
         let neighbors = get_neighbors(&current_node, &current_node.cost, &end);
         for neighbor_node in neighbors {
             let value = board.get_value(neighbor_node.coord);
-            if !matches!(value, None | Some('#'))
-                && current_node.cost
-                < *g_scores
-                .get(&(neighbor_node.coord, neighbor_node.direction))
-                .unwrap_or(&usize::MAX)
-            {
-                path.insert(neighbor_node.clone(), current_node.clone());
-                g_scores.insert(
-                    (neighbor_node.coord, neighbor_node.direction),
-                    neighbor_node.cost,
-                );
+            if !matches!(value, None | Some('#')) {
+                let score = *g_scores
+                    .get(&(neighbor_node.coord, neighbor_node.direction))
+                    .unwrap_or(&usize::MAX);
 
-                open_queue.push(neighbor_node);
+                if neighbor_node.cost < score {
+                    path.insert(neighbor_node.clone(), HashSet::from([current_node]));
+                    g_scores.insert(
+                        (neighbor_node.coord, neighbor_node.direction),
+                        neighbor_node.cost,
+                    );
+
+                    open_queue.push(neighbor_node);
+                } else if neighbor_node.cost == score {
+                    path.entry(neighbor_node.clone())
+                        .or_insert_with(|| HashSet::new())
+                        .insert(current_node.clone());
+                }
             }
         }
     }
-    paths.retain(|p| p.last().map(|(_, c)| *c == part1_score).unwrap_or(false));
-    (part1_score, paths)
+    let tiles = get_tiles(path, part1_score, &start, &end);
+    (part1_score, tiles)
 }
 
 fn main() {
-    let board = Board::read_char_board("data/day16test2.txt");
+    let board = Board::read_char_board("data/day16test.txt");
     let start: Coord = board.find_element('S').unwrap();
     let end: Coord = board.find_element('E').unwrap();
 
-    let (part1, paths) = a_star(&board, start, end);
-
-    println!("Paths: {}", paths.len());
-
-    let tiles: HashSet<Coord> = paths
-        .into_iter()
-        .flat_map(|inner_vec| inner_vec.into_iter().map(|(coord, _)| coord))
-        .collect();
+    let (part1, part2) = a_star(&board, start, end);
 
     println!("Part1 {}", part1);
-    println!("Part2: {}", tiles.len());
+    println!("Part2: {}", part2);
 
-    let mut board_mut = board.clone();
-    for tile in tiles {
-        board_mut.set_value(tile, 'O');
-    }
-    board_mut.print_board();
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{a_star};
+    use crate::a_star;
     use AdventOfCode::board::{Board, Coord};
 
     #[test]
@@ -159,7 +181,8 @@ mod tests {
         let board = Board::read_char_board("data/day16test.txt");
         let start: Coord = board.find_element('S').unwrap();
         let end: Coord = board.find_element('E').unwrap();
-        let (part1, _) = a_star(&board, start, end);
+        let (part1, part2) = a_star(&board, start, end);
         assert_eq!(part1, 7036);
+        assert_eq!(part2, 45);
     }
 }
