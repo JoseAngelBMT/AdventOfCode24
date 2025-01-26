@@ -4,8 +4,6 @@ use std::io::{BufRead, BufReader};
 use AdventOfCode::board::{Board, Coord};
 use AdventOfCode::path_finding::{a_star, NodeTrait, StateTrait};
 
-const SIZE: usize = 71;
-
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Copy)]
 struct State {
     coord: Coord,
@@ -125,22 +123,63 @@ fn get_neighbors(node: &Node, end: &State) -> Vec<Node> {
     ]
 }
 
-fn part1(board: &Board<char>, coords: &Vec<Coord>) -> usize {
+// Part 1 Function
+fn get_cost(board: &Board<char>, coords: &Vec<Coord>, size: usize, byte: usize) -> usize {
     let mut board = board.clone();
-    add_coords(&mut board, &coords[0..1024]);
+    add_coords(&mut board, &coords[0..byte]);
     let (cost, _) = a_star(
         &board,
         State::new(Coord::new(0, 0)),
-        State::new(Coord::new((SIZE - 1) as i32, (SIZE - 1) as i32)),
+        State::new(Coord::new((size - 1) as i32, (size - 1) as i32)),
         get_neighbors,
-        true,
+        false,
     );
     cost
 }
 
+fn part2(board: &Board<char>, coords: &Vec<Coord>, size: usize) -> Coord {
+    let mut ranges: (usize, usize) = (0, coords.len()-1);
+
+    while ranges.0 != ranges.1 - 1{
+        let pos = (ranges.1 - ranges.0)/2 + ranges.0;
+        let cost = get_cost(board, coords, size, pos);
+        if cost == usize::MAX {
+            ranges.1 = pos;
+        }else {
+            ranges.0 = pos;
+        }
+    }
+    coords[ranges.0].clone()
+}
+
 fn main() {
-    let board = Board::<char>::empty(SIZE, SIZE);
+    let size = 71;
+    let board = Board::<char>::empty(size, size);
     let coords = read_input("data/day18.txt");
-    let tiles = part1(&board, &coords);
+    let tiles = get_cost(&board, &coords, size, 1024);
+    let coord_par2 = part2(&board, &coords, size);
     println!("Part 1: {}", tiles);
+    println!("Part 2: {:?}", coord_par2);
+}
+
+#[cfg(test)]
+mod tests {
+    use AdventOfCode::board::{Board, Coord};
+    use crate::{get_cost, part2, read_input};
+
+    #[test]
+    fn test_part1() {
+        let size = 7;
+        let board = Board::<char>::empty(size, size);
+        let coords = read_input("data/day18test.txt");
+        assert_eq!(get_cost(&board, &coords, size, 12), 22);
+    }
+
+    #[test]
+    fn test_part2() {
+        let size = 7;
+        let board = Board::<char>::empty(7, 7);
+        let coords = read_input("data/day18test.txt");
+        assert_eq!(part2(&board, &coords, size), Coord { x: 6, y: 1 });
+    }
 }
