@@ -1,9 +1,8 @@
+use crate::board::{Board, Coord};
 use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::hash::Hash;
-use crate::board::{Board, Coord};
 
-
-pub trait StateTrait: Eq + PartialEq + Clone + Hash{
+pub trait StateTrait: Eq + PartialEq + Clone + Hash {
     fn get_coord(&self) -> Coord;
 }
 
@@ -17,8 +16,13 @@ pub trait NodeTrait {
     fn new(state: Self::State, cost: usize, h_cost: usize) -> Self;
 }
 
-
-pub fn a_star<S, N, F>(board: &Board<char>, start: S, end: S, get_neighbors: F) -> (usize, HashMap<N, HashSet<N>>)
+pub fn a_star<S, N, F>(
+    board: &Board<char>,
+    start: S,
+    end: S,
+    get_neighbors: F,
+    one_path: bool,
+) -> (usize, HashMap<N, HashSet<N>>)
 where
     S: StateTrait,
     N: NodeTrait<State = S> + Ord + Eq + PartialEq + Clone + Hash,
@@ -39,6 +43,9 @@ where
             if min_score > current_node.get_cost() {
                 min_score = current_node.get_cost();
             }
+            if one_path {
+                return (min_score, paths);
+            }
             continue;
         }
 
@@ -46,7 +53,9 @@ where
         for neighbor_node in neighbors {
             let value = board.get_value(neighbor_node.get_state().get_coord());
             if !matches!(value, None | Some('#')) {
-                let score = *g_scores.get(&neighbor_node.get_state()).unwrap_or(&usize::MAX);
+                let score = *g_scores
+                    .get(&neighbor_node.get_state())
+                    .unwrap_or(&usize::MAX);
 
                 if neighbor_node.get_cost() < score {
                     paths.insert(neighbor_node.clone(), HashSet::from([current_node.clone()]));

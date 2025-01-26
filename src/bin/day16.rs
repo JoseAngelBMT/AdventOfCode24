@@ -149,6 +149,7 @@ fn main() {
         State::new(start, 1),
         State::new(end, 0),
         get_neighbors,
+        false
     );
     let part2 = get_tiles(paths, part1, &end);
     println!("Part1 {}", part1);
@@ -170,6 +171,7 @@ mod tests {
             State::new(start, 1),
             State::new(end, 0),
             get_neighbors,
+            false
         );
         let part2 = get_tiles(paths, part1, &end);
         assert_eq!(part1, 7036);

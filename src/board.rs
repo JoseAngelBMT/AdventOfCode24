@@ -8,7 +8,10 @@ pub struct Board<T> {
     pub rows: Vec<Vec<T>>,
 }
 
-impl<T: PartialEq + Debug + Display> Board<T> {
+impl<T> Board<T>
+where
+    T: PartialEq + Debug + Display + Copy,
+{
     pub fn new(rows: Vec<Vec<T>>) -> Self {
         Self { rows }
     }
@@ -20,6 +23,11 @@ impl<T: PartialEq + Debug + Display> Board<T> {
             .lines()
             .map(|line| line.unwrap().chars().map(|c| parser(&c)).collect())
             .collect();
+        Self::new(rows)
+    }
+
+    fn empty_board(width: usize, height: usize, default_value: T) -> Self {
+        let rows = vec![vec![default_value; width]; height];
         Self::new(rows)
     }
 
@@ -40,24 +48,21 @@ impl<T: PartialEq + Debug + Display> Board<T> {
     }
 
     pub fn find_element(&self, element: T) -> Option<Coord> {
-        self.rows
-            .iter()
-            .enumerate()
-            .find_map(|(row_idx, row)| {
-                row.iter()
-                    .enumerate()
-                    .find(|&(_, cell)| cell == &element)
-                    .map(|(col_idx, _)| Coord::new(
-                        col_idx as i32,
-                        row_idx as i32,
-                    ))
-            })
+        self.rows.iter().enumerate().find_map(|(row_idx, row)| {
+            row.iter()
+                .enumerate()
+                .find(|&(_, cell)| cell == &element)
+                .map(|(col_idx, _)| Coord::new(col_idx as i32, row_idx as i32))
+        })
     }
-
 
     pub fn print_board(&self) {
         for row in &self.rows {
-            let line: String = row.iter().map(|cell| format!("{}", cell)).collect::<Vec<_>>().join("");
+            let line: String = row
+                .iter()
+                .map(|cell| format!("{}", cell))
+                .collect::<Vec<_>>()
+                .join("");
             println!("{}", line);
         }
     }
@@ -75,11 +80,19 @@ impl Board<char> {
             .collect();
         Self { rows }
     }
+
+    pub fn empty(width: usize, height: usize) -> Self {
+        Self::empty_board(width, height, '.')
+    }
 }
 
 impl Board<i32> {
     pub fn read_int_board(path: &str) -> Self {
         Self::read_board(path, &|c| c.to_digit(10).unwrap() as i32)
+    }
+
+    pub fn empty(width: usize, height: usize) -> Self {
+        Self::empty_board(width, height, 0)
     }
 }
 
@@ -88,7 +101,6 @@ pub struct Coord {
     pub x: i32,
     pub y: i32,
 }
-
 
 impl Coord {
     pub fn new(x: i32, y: i32) -> Coord {
@@ -134,5 +146,4 @@ impl Sub for Coord {
         Self::new(self.x - rhs.x, self.y - rhs.y)
     }
 }
-
 
