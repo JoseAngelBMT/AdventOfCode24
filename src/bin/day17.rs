@@ -1,17 +1,18 @@
 use regex::Regex;
 use std::fs;
+use std::io::Write;
 
 struct Computer {
-    a: i32,
-    b: i32,
-    c: i32,
+    a: u64,
+    b: u64,
+    c: u64,
     ip: usize,
     program: Vec<u8>,
-    output: Vec<i32>,
+    output: Vec<u8>,
 }
 
 impl Computer {
-    fn new(a: i32, b: i32, c: i32, program: Vec<u8>) -> Self {
+    fn new(a: u64, b: u64, c: u64, program: Vec<u8>) -> Self {
         Self {
             a,
             b,
@@ -36,9 +37,9 @@ impl Computer {
         }
     }
 
-    fn get_operand(&mut self, operand: u8) -> i32 {
+    fn get_operand(&mut self, operand: u8) -> u64 {
         match operand {
-            0..=3 => operand as i32,
+            0..=3 => operand as u64,
             4 => self.a,
             5 => self.b,
             6 => self.c,
@@ -48,12 +49,12 @@ impl Computer {
 
     fn adv(&mut self, operand: u8) {
         let combo = self.get_operand(operand);
-        self.a = self.a / 2_i32.pow(combo as u32);
+        self.a = self.a / 2_u64.pow(combo as u32);
         self.ip += 2;
     }
 
     fn bxl(&mut self, operand: u8) {
-        self.b ^= operand as i32;
+        self.b ^= operand as u64;
         self.ip += 2;
     }
 
@@ -78,19 +79,19 @@ impl Computer {
 
     fn out(&mut self, operand: u8) {
         let combo = self.get_operand(operand);
-        self.output.push(combo % 8);
+        self.output.push(combo as u8 % 8);
         self.ip += 2;
     }
 
     fn bdv(&mut self, operand: u8) {
         let combo = self.get_operand(operand);
-        self.b = self.a / 2_i32.pow(combo as u32);
+        self.b = self.a / 2_u64.pow(combo as u32);
         self.ip += 2;
     }
 
     fn cdv(&mut self, operand: u8) {
         let combo = self.get_operand(operand);
-        self.c = self.a / 2_i32.pow(combo as u32);
+        self.c = self.a / 2_u64.pow(combo as u32);
         self.ip += 2;
     }
 
@@ -102,25 +103,37 @@ impl Computer {
         }
     }
 
-    fn get_output(&mut self) -> Vec<i32> {
+    fn run_step(&mut self) -> Option<u8> {
+        while self.ip < self.program.len() {
+            let code = self.program.get(self.ip).cloned().unwrap();
+            let operand = self.program.get(self.ip + 1).cloned().unwrap();
+            self.execute_instruction(code, operand);
+            if code == 5 {
+                return self.output.last().cloned();
+            }
+        }
+        None
+    }
+
+    fn get_output(&mut self) -> Vec<u8> {
         self.output.clone()
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Input {
-    a: i32,
-    b: i32,
-    c: i32,
+    a: u64,
+    b: u64,
+    c: u64,
     program: Vec<u8>,
 }
 
 fn read_input(path: &str) -> Input {
     let content = fs::read_to_string(path).unwrap();
     let re = Regex::new(r"\d+").unwrap();
-    let numbers: Vec<i32> = re
+    let numbers: Vec<u64> = re
         .find_iter(&content)
-        .filter_map(|mat| mat.as_str().parse::<i32>().ok())
+        .filter_map(|mat| mat.as_str().parse::<u64>().ok())
         .collect();
     let program: Vec<u8> = numbers[3..].iter().map(|&x| x as u8).collect();
     Input {
@@ -131,9 +144,37 @@ fn read_input(path: &str) -> Input {
     }
 }
 
+pub fn part2(input: &Vec<u8>) -> u64 {
+    find_register(input, input.len(), 0).unwrap()
+}
+
+fn find_register(program: &Vec<u8>, index: usize, a: u64) -> Option<u64> {
+    if index == 0 {
+        return Some(a);
+    }
+
+    for i in 0..8 {
+        let next_a = (a << 3) | i;
+
+        let out = Computer::new(next_a, 0, 0, program.clone())
+            .run_step()
+            .unwrap();
+
+        if out == program[index - 1] {
+            if let Some(result) = find_register(program, index - 1, next_a) {
+                return Some(result);
+            }
+        }
+    }
+
+    None
+}
+
+
+
 fn main() {
     let data = read_input("data/day17.txt");
-    let mut computer = Computer::new(data.a, data.b, data.c, data.program);
+    let mut computer = Computer::new(data.a, data.b, data.c, data.program.clone());
     computer.run();
     println!(
         "Part 1: {:?}",
@@ -144,16 +185,29 @@ fn main() {
             .collect::<Vec<String>>()
             .join(",")
     );
+    println!("Part 2: {:?}", part2(&data.program.clone()));
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::Computer;
+    use crate::{part2, Computer};
 
     #[test]
     fn test_part1() {
         let mut computer = Computer::new(729, 0, 0, vec![0, 1, 5, 4, 3, 0]);
         computer.run();
         assert_eq!(computer.get_output(), vec![4, 6, 3, 5, 6, 3, 5, 2, 1, 0]);
+    }
+
+    #[test]
+    fn test_part2_number() {
+        let mut computer = Computer::new(117440, 0, 0, vec![0, 3, 5, 4, 3, 0]);
+        computer.run();
+        assert_eq!(computer.get_output(), vec![0, 3, 5, 4, 3, 0]);
+    }
+    #[test]
+    fn test_part2() {
+        let result = part2(&vec![0, 3, 5, 4, 3, 0]);
+        assert_eq!(result, 117440);
     }
 }
